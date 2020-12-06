@@ -37,7 +37,7 @@ func (h *httpApiHandler) Halt(r *http.Request) (interface{}, error) {
 }
 
 func (h *httpApiHandler) Status(r *http.Request) (interface{}, error) {
-	host, err := requireParam(r, "host")
+	host, err := requirePathParam(r, "host")
 	if err != nil {
 		return nil, err
 	}

@@ -59,11 +59,21 @@ func parseHaltPayload(r *http.Request) (*ApiHaltPayload, error) {
 	return &haltPayload, nil
 }
 
-func requireParam(r *http.Request, name string) (string, error) {
+func requirePathParam(r *http.Request, name string) (string, error) {
 	params := mux.Vars(r)
 	if uid, ok := params[name]; ok {
 		return uid, nil
 	}
 
 	return "", badRequestError{fmt.Errorf("invalid param `%s`", name)}
+}
+
+
+func requireQueryParam(r *http.Request, name string) (string, error) {
+	val := r.URL.Query().Get(name)
+	if len(val) > 0 {
+		return val, nil
+	}
+
+	return "", badRequestError{fmt.Errorf("invalid param %s", name)}
 }

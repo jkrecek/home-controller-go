@@ -123,3 +123,48 @@ func openSshSessionCommand(user string, host string, port int, password Password
 	session.Output(cmd)
 	return nil, nil
 }
+
+func observePingOnHost(host string, done chan bool, update func(status ApiStatusData)) error {
+	pinger, err := ping.NewPinger(host)
+	if err != nil {
+		return err
+	}
+
+	defer pinger.Stop()
+
+	pinger.RecordRtts = false
+
+	var lastReceived time.Time
+	received := false
+	pinger.OnRecv = func(packet *ping.Packet) {
+		lastReceived = time.Now()
+		received = true
+	}
+
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				isOnline := time.Now().Before(lastReceived.Add(2 * time.Second))
+				update(ApiStatusData{
+					IsOnline: isOnline,
+				})
+			}
+		}
+	}()
+
+	go func() {
+		err = pinger.Run()
+		if err != nil {
+			log.Error(err)
+		}
+	}()
+
+	<-done
+	return nil
+}

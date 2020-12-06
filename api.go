@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gorilla/mux"
+	"golang.org/x/net/websocket"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -225,12 +226,6 @@ var (
 	internalErrorErr = internalError{errors.New("Some error occured on server. Please try again soon.")}
 )
 
-type route struct {
-	Name        string
-	Method      string
-	Pattern     string
-	HandlerFunc RequestProcessor
-}
 
 func NewRouter(h *httpApiHandler) *mux.Router {
 	router := mux.NewRouter().StrictSlash(false)
@@ -240,6 +235,10 @@ func NewRouter(h *httpApiHandler) *mux.Router {
 			Path(r.Pattern).
 			Name(r.Name).
 			Handler(r.HandlerFunc)
+	}
+
+	for _, r := range h.getWSRoutes() {
+		router.Handle(r.Path, websocket.Handler(r.HandlerFunc))
 	}
 
 	return router
@@ -283,25 +282,3 @@ func (h *httpApiHandler) StartListen() {
 	}
 }
 
-func (h *httpApiHandler) getRoutes() []route {
-	return []route{
-		{
-			"wake",
-			"POST",
-			"/wake",
-			h.Wake,
-		},
-		{
-			"halt",
-			"POST",
-			"/halt",
-			h.Halt,
-		},
-		{
-			"status",
-			"GET",
-			"/status/{host}",
-			h.Status,
-		},
-	}
-}

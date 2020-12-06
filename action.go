@@ -1,0 +1,125 @@
+package main
+
+import (
+	"fmt"
+	"github.com/go-ping/ping"
+	"github.com/linde12/gowol"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
+	"os"
+	"os/user"
+	"strconv"
+	"time"
+)
+
+func sendMagicPacket(wakePayload *ApiWakePayload) {
+	if packet, err := gowol.NewMagicPacket(string(wakePayload.Mac)); err == nil {
+		if len(wakePayload.BroadcastAddress) != 0 {
+			for i := 0; i < len(wakePayload.BroadcastAddress)-1; i++ {
+				address := wakePayload.BroadcastAddress[i]
+				packet.SendPort(string(address.Ip), strconv.Itoa(address.Port))
+			}
+		} else {
+			defaultPorts := []int{7, 9}
+			for i := 0; i < len(defaultPorts)-1; i++ {
+				packet.SendPort("255.255.255.255", strconv.Itoa(defaultPorts[i]))
+			}
+		}
+	}
+}
+
+func pingToCheckOnline(host string) (bool, error) {
+	pinger, err := ping.NewPinger(host)
+	if err != nil {
+		return false, err
+	}
+
+	pinger.Timeout = 3 * time.Second
+	pinger.OnRecv = func(packet *ping.Packet) {
+		pinger.Stop()
+	}
+
+	err = pinger.Run()
+	if err != nil {
+		return false, err
+	}
+
+	stats := pinger.Statistics()
+	anySuccess := stats.PacketsRecv > 0
+
+	return anySuccess, nil
+}
+
+func sshKnownHosts() (ssh.HostKeyCallback, error) {
+	usr, err := user.Current()
+	if err != nil {
+		return nil, err
+	}
+
+	path := fmt.Sprintf("%s/.ssh/known_hosts", usr.HomeDir)
+	file, err := os.OpenFile(path, os.O_RDONLY|os.O_CREATE, 0644)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	hostKeyCallback, err := knownhosts.New(path)
+	if err != nil {
+		return nil, err
+	}
+
+	return hostKeyCallback, err
+}
+
+func sshAuthSigner(pemKey []byte, passphrase string) (ssh.Signer, error) {
+	if len(passphrase) > 0 {
+		return ssh.ParsePrivateKeyWithPassphrase(pemKey, []byte(passphrase))
+	} else {
+		return ssh.ParsePrivateKey(pemKey)
+	}
+}
+
+func openSshSessionCommand(user string, host string, port int, password Password, privateKey *ApiSshPrivateKey, cmd string) ([]byte, error) {
+	hostKeyCallback, err := sshKnownHosts()
+	if err != nil {
+		return nil, err
+	}
+
+	var authMethods []ssh.AuthMethod
+	if privateKey != nil {
+		authKey := privateKey.AuthMethod()
+		if authKey != nil {
+			authMethods = append(authMethods, authKey)
+		}
+	}
+
+	authPass := password.AuthMethod()
+	if authPass != nil {
+		authMethods = append(authMethods, authPass)
+	}
+
+	config := &ssh.ClientConfig{
+		User:            user,
+		Auth:            authMethods,
+		HostKeyCallback: hostKeyCallback,
+	}
+
+	addr := fmt.Sprintf("%s:%d", host, port)
+	client, err := ssh.Dial("tcp", addr, config)
+	if err != nil {
+		return nil, err
+	}
+
+	defer client.Close()
+
+	session, err := client.NewSession()
+	if err != nil {
+		return nil, err
+	}
+
+	defer session.Close()
+
+	// ignore result from output
+	session.Output(cmd)
+	return nil, nil
+}

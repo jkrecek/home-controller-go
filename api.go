@@ -298,10 +298,10 @@ func (h *httpApiHandler) getRoutes() []route {
 			h.Halt,
 		},
 		{
-			"isOnline",
+			"status",
 			"GET",
-			"/isOnline",
-			h.IsOnline,
+			"/status/{host}",
+			h.Status,
 		},
 	}
 }

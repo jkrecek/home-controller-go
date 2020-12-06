@@ -13,10 +13,8 @@ var httpsAddrFlag = flag.String("https_addr", ":443", "Address to which HTTPS se
 var httpsCertFlag = flag.String("https_cert", "", "Path to file containing HTTPS certificate")
 var httpsKeyFlag = flag.String("https_key", "", "Path to file containing HTTPS key")
 
-
 func main() {
 	flag.Parse()
-
 
 	api := InitApiCore()
 	api.SetHttp(*httpAddrFlag)
@@ -25,4 +23,3 @@ func main() {
 
 	<-syncQuit
 }
-

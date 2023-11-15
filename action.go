@@ -53,19 +53,19 @@ func pingToCheckOnline(host string) (bool, error) {
 func sshKnownHosts() (ssh.HostKeyCallback, error) {
 	usr, err := user.Current()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("couldnt access user home %s", err)
 	}
 
 	path := fmt.Sprintf("%s/.ssh/known_hosts", usr.HomeDir)
 	file, err := os.OpenFile(path, os.O_RDONLY|os.O_CREATE, 0644)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("couldnt access known_hosts file %s", err)
 	}
 	defer file.Close()
 
 	hostKeyCallback, err := knownhosts.New(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("couldnt create new knownhosts %s", err)
 	}
 
 	return hostKeyCallback, err
@@ -87,10 +87,12 @@ func openSshSessionCommand(user string, host string, port int, password Password
 
 	var authMethods []ssh.AuthMethod
 	if privateKey != nil {
-		authKey := privateKey.AuthMethod()
-		if authKey != nil {
-			authMethods = append(authMethods, authKey)
+		authKey, err := privateKey.AuthMethod()
+		if err != nil {
+			return nil, err
 		}
+
+		authMethods = append(authMethods, *authKey)
 	}
 
 	authPass := password.AuthMethod()
@@ -107,14 +109,14 @@ func openSshSessionCommand(user string, host string, port int, password Password
 	addr := fmt.Sprintf("%s:%d", host, port)
 	client, err := ssh.Dial("tcp", addr, config)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("couldnt dial ssh, %s", err)
 	}
 
 	defer client.Close()
 
 	session, err := client.NewSession()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("couldnt create client session, %s", err)
 	}
 
 	defer session.Close()
@@ -135,10 +137,10 @@ func observePingOnHost(host string, done chan bool, update func(status ApiStatus
 	pinger.RecordRtts = false
 
 	var lastReceived time.Time
-	received := false
+	// received := false
 	pinger.OnRecv = func(packet *ping.Packet) {
 		lastReceived = time.Now()
-		received = true
+		// received = true
 	}
 
 	ticker := time.NewTicker(500 * time.Millisecond)

@@ -226,7 +226,6 @@ var (
 	internalErrorErr = internalError{errors.New("Some error occured on server. Please try again soon.")}
 )
 
-
 func NewRouter(h *httpApiHandler) *mux.Router {
 	router := mux.NewRouter().StrictSlash(false)
 
@@ -262,6 +261,7 @@ func (h *httpApiHandler) StartListen() {
 	if h.httpAddr != "" {
 		go func() {
 			server := &http.Server{Addr: h.httpAddr, Handler: h.router}
+			log.Infof("HTTP: Listening on addr %s", server.Addr)
 			err := server.ListenAndServe()
 			if err != nil {
 				log.Fatalf("Could not start HTTP listener. %v\n", err)
@@ -272,6 +272,7 @@ func (h *httpApiHandler) StartListen() {
 	if h.httpsCert != "" && h.httpsKey != "" {
 		go func() {
 			server := &http.Server{Addr: h.httpsAddr, Handler: h.router}
+			log.Infof("HTTPS: Listening on addr %s", server.Addr)
 			err := server.ListenAndServeTLS(h.httpsCert, h.httpsKey)
 			if err != nil {
 				log.Fatalf("Could not start HTTPS listener. %v\n", err)
@@ -281,4 +282,3 @@ func (h *httpApiHandler) StartListen() {
 		log.Warning("To enable HTTPS server you must provide both cert and key file.")
 	}
 }
-

@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"golang.org/x/crypto/ssh"
-	"io/ioutil"
 	"net"
+	"os"
 	"os/user"
 	"path"
 )
@@ -148,29 +148,29 @@ func (k *ApiSshPrivateKey) GetFullPath() (string, error) {
 	}
 }
 
-func (k *ApiSshPrivateKey) AuthMethod() ssh.AuthMethod {
+func (k *ApiSshPrivateKey) AuthMethod() (*ssh.AuthMethod, error) {
 	if k == nil {
-		return nil
+		return nil, errors.New("missing private key")
 	}
 
 	keyPath, err := k.GetFullPath()
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
-	key, err := ioutil.ReadFile(keyPath)
+	key, err := os.ReadFile(keyPath)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	// Create the Signer for this private key.
 	signer, err := sshAuthSigner(key, k.Passphrase)
 	if err != nil {
-		log.Warning(err)
-		return nil
+		return nil, err
 	}
 
-	return ssh.PublicKeys(signer)
+	authMethod := ssh.PublicKeys(signer)
+	return &authMethod, nil
 }
 
 type ApiStatusData struct {

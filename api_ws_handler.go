@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"golang.org/x/net/websocket"
 	"io"
 )
@@ -9,6 +10,7 @@ import (
 func (h *httpApiHandler) StatusStream(conn *websocket.Conn) {
 	host, err := requireQueryParam(conn.Request(), "host")
 	if err != nil {
+		conn.Write([]byte(fmt.Sprintf("Connection error: %s", err)))
 		conn.Close()
 		return
 	}
@@ -28,13 +30,16 @@ func (h *httpApiHandler) StatusStream(conn *websocket.Conn) {
 	}()
 
 	err = observePingOnHost(host, done, func(status ApiStatusData) {
-		b, err:= json.Marshal(status)
+		b, err := json.Marshal(status)
 		if err != nil {
 			log.Warning(err)
 			return
 		}
 
-		conn.Write(b)
+		_, err = conn.Write(b)
+		if err != nil {
+			done <- true
+		}
 	})
 
 	if err != nil {

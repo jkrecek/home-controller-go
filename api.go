@@ -3,11 +3,10 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/gorilla/mux"
 	"golang.org/x/net/websocket"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 )
@@ -52,13 +51,13 @@ func (r *responder) setHeader(name, value string) {
 func (r *responder) handle(rp RequestProcessor) {
 	r.start = time.Now()
 
-	bodyBts, _ := ioutil.ReadAll(r.r.Body)
+	bodyBts, _ := io.ReadAll(r.r.Body)
 	r.r.Body.Close()
 
 	msg := fmt.Sprintf("Request: '%s %s', body: '%s'.", r.r.Method, r.r.RequestURI, bodyBts)
 	log.Debug(msg)
 
-	r.r.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBts))
+	r.r.Body = io.NopCloser(bytes.NewBuffer(bodyBts))
 
 	res, err := rp(r.r)
 	if err != nil {
@@ -216,15 +215,6 @@ func (e baseHttpError) StatusCode() int {
 func (e baseHttpError) Fields() string {
 	return e.fields
 }
-
-var (
-	invalidTokenErrorErr = invalidTokenError{errors.New("Invalid token")}
-	notYetImplemented    = baseHttpError{
-		error:      errors.New("This method is not yet implemented."),
-		statusCode: http.StatusNotImplemented,
-	}
-	internalErrorErr = internalError{errors.New("Some error occured on server. Please try again soon.")}
-)
 
 func NewRouter(h *httpApiHandler) *mux.Router {
 	router := mux.NewRouter().StrictSlash(false)

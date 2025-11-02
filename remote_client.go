@@ -9,36 +9,39 @@ import (
 	"net/url"
 )
 
-func handleRemoteCommand(args []string) {
-	if len(args) < 4 {
-		log.Fatal("command remote must have at least 2 arguments: homecontroller remote [configuration] command [target]")
+func handleRemoteCommand(remoteId, targetId string, command string) {
+	if remoteId == "" {
+		log.Fatal("missing flag --remote")
 		return
 	}
 
-	configurationId := args[1]
+	if targetId == "" {
+		log.Fatal("missing flag --target")
+		return
+	}
+
 	config, err := loadConfig()
 	if err != nil {
 		log.Fatal(err)
 		return
 	}
 
-	remoteConfig := getRemoteConfigurationById(config, configurationId)
+	remoteConfig := getRemoteConfigurationById(config, remoteId)
 
 	if remoteConfig == nil {
-		log.Fatalf("Configuration '%s' not found in config file", configurationId)
+		log.Fatalf("Configuration '%s' not found in config file", remoteId)
 		return
 	}
 
-	targetId := args[3]
 	targetConfig := getTargetConfigurationById(&remoteConfig.Targets, targetId)
 	if targetConfig == nil {
 		log.Fatalf("Target '%s' not found in for configuration %s", targetId, remoteConfig.Id)
 		return
 	}
 
-	requestOpts, responseOpts, err := getRequestOpts(targetConfig, args[2])
+	requestOpts, responseOpts, err := getRequestOpts(targetConfig, command)
 	if err != nil {
-		log.Fatalf("Cannot handle command '%s': %v", args[2], err)
+		log.Fatalf("Cannot handle command '%s': %v", command, err)
 		return
 	}
 
@@ -125,7 +128,7 @@ func getRemoteWakeRequestOpts(targetConfig *TargetConfiguration) (*RequestOpts, 
 	}
 
 	successResponseHandler := func(response *http.Response) error {
-		fmt.Printf("Wake request sent to %s", targetConfig.Host)
+		fmt.Printf("Wake request sent to %s.\n", targetConfig.Host)
 		return nil
 	}
 
@@ -150,7 +153,7 @@ func getRemoteHaltRequestOpts(targetConfig *TargetConfiguration) (*RequestOpts, 
 	}
 
 	successResponseHandler := func(response *http.Response) error {
-		fmt.Printf("Halt request sent to %s", targetConfig.Host)
+		fmt.Printf("Halt request sent to %s.\n", targetConfig.Host)
 		return nil
 	}
 

@@ -2,9 +2,9 @@ package main
 
 import "fmt"
 
-func handleRunCommand(args []string) {
-	if len(args) < 3 {
-		log.Fatal("command run must have at least 2 arguments: homecontroller run command [target]")
+func handleRunCommand(targetId string, command string) {
+	if targetId == "" {
+		log.Fatal("missing flag --target")
 		return
 	}
 
@@ -14,14 +14,13 @@ func handleRunCommand(args []string) {
 		return
 	}
 
-	targetId := args[2]
 	targetConfig := getTargetConfigurationById(&config.RunTargets, targetId)
 	if targetConfig == nil {
 		log.Fatalf("Run target '%s' not found", targetId)
 		return
 	}
 
-	switch args[1] {
+	switch command {
 	case "wake":
 		handleRunWake(targetConfig)
 		break
@@ -33,7 +32,7 @@ func handleRunCommand(args []string) {
 		break
 	case "status-stream":
 	default:
-		log.Fatalf("Unknown command '%s'", args[2])
+		log.Fatalf("Unknown command '%s'", command)
 		break
 	}
 }

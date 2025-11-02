@@ -38,9 +38,10 @@ func (t *TargetConfiguration) GetBroadcastAddress() []*BroadcastAddress {
 }
 
 type RemoteConfiguration struct {
-	Id      string                `yaml:"id"`
-	Host    string                `yaml:"host"`
-	Targets []TargetConfiguration `yaml:"targets"`
+	Id        string                `yaml:"id"`
+	Host      string                `yaml:"host"`
+	AuthToken string                `yaml:"auth_token"`
+	Targets   []TargetConfiguration `yaml:"targets"`
 }
 
 type LocalConfiguration struct {

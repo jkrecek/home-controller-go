@@ -22,6 +22,7 @@ type httpApiHandler struct {
 type HttpCore interface {
 	SetHttp(httpAddr string)
 	SetHttps(httpsAddr string, httpsCert string, httpsKey string)
+	UseMiddleware(mwf ...mux.MiddlewareFunc)
 	StartListen()
 }
 
@@ -246,6 +247,10 @@ func (h *httpApiHandler) SetHttps(httpsAddr string, httpsCert string, httpsKey s
 	h.httpsAddr = httpsAddr
 	h.httpsCert = httpsCert
 	h.httpsKey = httpsKey
+}
+
+func (h *httpApiHandler) UseMiddleware(mwf ...mux.MiddlewareFunc) {
+	h.router.Use(mwf...)
 }
 
 func (h *httpApiHandler) StartListen() {

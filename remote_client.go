@@ -68,6 +68,10 @@ func handleRemoteCommand(remoteId, targetId string, command string) {
 		return
 	}
 
+	if remoteConfig.AuthToken != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", remoteConfig.AuthToken))
+	}
+
 	if reader != nil {
 		req.Header.Set("Content-Type", "application/json; charset=utf-8")
 	}

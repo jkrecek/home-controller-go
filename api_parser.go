@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gorilla/mux"
 	"mime"
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
 func parseWakePayload(r *http.Request) (*ApiWakePayload, error) {
@@ -67,7 +68,6 @@ func requirePathParam(r *http.Request, name string) (string, error) {
 
 	return "", badRequestError{fmt.Errorf("invalid param `%s`", name)}
 }
-
 
 func requireQueryParam(r *http.Request, name string) (string, error) {
 	val := r.URL.Query().Get(name)

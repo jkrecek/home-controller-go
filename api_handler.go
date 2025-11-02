@@ -22,13 +22,7 @@ func (h *httpApiHandler) Halt(r *http.Request) (interface{}, error) {
 		return nil, err
 	}
 
-	shouldSudo := haltPayload.User != "root"
-	cmd := "halt -p"
-	if shouldSudo {
-		cmd = "sudo " + cmd
-	}
-
-	_, err = openSshSessionCommand(haltPayload.User, haltPayload.Host, haltPayload.GetPort(), haltPayload.Password, &haltPayload.PrivateKey, cmd)
+	_, err = haltViaSsh(haltPayload.User, haltPayload.Host, haltPayload.Port, haltPayload.Password, &haltPayload.PrivateKey, nil)
 	if err != nil {
 		return nil, err
 	}

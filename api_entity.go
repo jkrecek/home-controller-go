@@ -2,12 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
-	"golang.org/x/crypto/ssh"
-	"net"
-	"os"
-	"os/user"
-	"path"
 )
 
 type Validation interface {
@@ -17,7 +11,7 @@ type Validation interface {
 type ApiWakePayload struct {
 	Mac HwAddress `json:"mac"`
 
-	BroadcastAddress []*ApiBroadcastAddress `json:"addresses,omitempty"`
+	BroadcastAddress []*BroadcastAddress `json:"addresses,omitempty"`
 }
 
 func (w *ApiWakePayload) Validate() error {
@@ -36,39 +30,20 @@ func (w *ApiWakePayload) Validate() error {
 	return nil
 }
 
-type ApiBroadcastAddress struct {
-	Ip   IP  `json:"ip"`
-	Port int `json:"port"`
+func (w *ApiWakePayload) GetMac() string {
+	return string(w.Mac)
 }
 
-func (a *ApiBroadcastAddress) Validate() error {
-	return a.Ip.Validate()
-}
-
-type IP string
-
-func (i IP) Validate() error {
-	ip := net.ParseIP(string(i))
-	if ip == nil {
-		return errors.New("invalid ip")
-	}
-
-	return nil
-}
-
-type HwAddress string
-
-func (a HwAddress) Validate() error {
-	_, err := net.ParseMAC(string(a))
-	return err
+func (w *ApiWakePayload) GetBroadcastAddress() []*BroadcastAddress {
+	return w.BroadcastAddress
 }
 
 type ApiHaltPayload struct {
-	User       string           `json:"user,required"`
-	Host       string           `json:"host,required"`
-	Port       *int             `json:"port,omitempty"`
-	Password   Password         `json:"password,omitempty"`
-	PrivateKey ApiSshPrivateKey `json:"private_key,omitempty"`
+	User       string               `json:"user,required"`
+	Host       string               `json:"host,required"`
+	Port       *int                 `json:"port,omitempty"`
+	Password   Password             `json:"password,omitempty"`
+	PrivateKey SshPrivateKeyOptions `json:"private_key,omitempty"`
 }
 
 func (h *ApiHaltPayload) Validate() error {
@@ -93,84 +68,6 @@ func (h *ApiHaltPayload) Validate() error {
 	}
 
 	return nil
-}
-
-func (h *ApiHaltPayload) GetPort() int {
-	if h.Port != nil {
-		return *h.Port
-	} else {
-		return 22
-	}
-}
-
-type Password string
-
-func (p Password) Validate() error {
-	if len(p) == 0 {
-		return errors.New("password must not be empty")
-	}
-
-	return nil
-}
-
-func (p Password) AuthMethod() ssh.AuthMethod {
-	if len(p) == 0 {
-		return nil
-	}
-
-	return ssh.Password(string(p))
-}
-
-type ApiSshPrivateKey struct {
-	Path       string `json:"path,required"`
-	Passphrase string `json:"passphrase"`
-}
-
-func (k *ApiSshPrivateKey) Validate() error {
-	if len(k.Path) == 0 {
-		return errors.New("path must not be empty")
-	}
-
-	return nil
-}
-
-func (k *ApiSshPrivateKey) GetFullPath() (string, error) {
-	if path.IsAbs(k.Path) {
-		return k.Path, nil
-	} else {
-		usr, err := user.Current()
-		if err != nil {
-			return "", err
-		}
-
-		fullPath := fmt.Sprintf("%s/.ssh/%s", usr.HomeDir, k.Path)
-		return fullPath, nil
-	}
-}
-
-func (k *ApiSshPrivateKey) AuthMethod() (*ssh.AuthMethod, error) {
-	if k == nil {
-		return nil, errors.New("missing private key")
-	}
-
-	keyPath, err := k.GetFullPath()
-	if err != nil {
-		return nil, err
-	}
-
-	key, err := os.ReadFile(keyPath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create the Signer for this private key.
-	signer, err := sshAuthSigner(key, k.Passphrase)
-	if err != nil {
-		return nil, err
-	}
-
-	authMethod := ssh.PublicKeys(signer)
-	return &authMethod, nil
 }
 
 type ApiStatusData struct {

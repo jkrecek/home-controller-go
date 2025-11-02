@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/mux"
-	"golang.org/x/net/websocket"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/gorilla/mux"
+	"golang.org/x/net/websocket"
 )
 
 type httpApiHandler struct {
@@ -66,13 +67,17 @@ func (r *responder) handle(rp RequestProcessor) {
 		r.setSuccess(res)
 	}
 
-	r.sendResponse()
+	_ = r.sendResponse()
 	r.outputToLog()
 }
 
 func (r *responder) sendResponse() error {
 	for name, value := range r.headers {
 		r.w.Header().Set(name, value)
+	}
+
+	if r.responseBody != nil {
+		r.w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	}
 
 	r.w.WriteHeader(r.statusCode)

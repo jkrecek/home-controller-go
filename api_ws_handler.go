@@ -3,8 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"golang.org/x/net/websocket"
 	"io"
+
+	"golang.org/x/net/websocket"
 )
 
 func (h *httpApiHandler) StatusStream(conn *websocket.Conn) {

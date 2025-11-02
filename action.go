@@ -2,21 +2,28 @@ package main
 
 import (
 	"fmt"
-	"github.com/go-ping/ping"
-	"github.com/linde12/gowol"
-	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/knownhosts"
 	"os"
 	"os/user"
 	"strconv"
 	"time"
+
+	"github.com/go-ping/ping"
+	"github.com/linde12/gowol"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
-func sendMagicPacket(wakePayload *ApiWakePayload) {
-	if packet, err := gowol.NewMagicPacket(string(wakePayload.Mac)); err == nil {
-		if len(wakePayload.BroadcastAddress) != 0 {
-			for i := 0; i < len(wakePayload.BroadcastAddress)-1; i++ {
-				address := wakePayload.BroadcastAddress[i]
+type ActionMagicPacket interface {
+	GetMac() string
+	GetBroadcastAddress() []*BroadcastAddress
+}
+
+func sendMagicPacket(magicPacket ActionMagicPacket) {
+	if packet, err := gowol.NewMagicPacket(magicPacket.GetMac()); err == nil {
+		broadcastAddress := magicPacket.GetBroadcastAddress()
+		if len(broadcastAddress) != 0 {
+			for i := 0; i < len(broadcastAddress)-1; i++ {
+				address := broadcastAddress[i]
 				packet.SendPort(string(address.Ip), strconv.Itoa(address.Port))
 			}
 		} else {
@@ -71,23 +78,43 @@ func sshKnownHosts() (ssh.HostKeyCallback, error) {
 	return hostKeyCallback, err
 }
 
-func sshAuthSigner(pemKey []byte, passphrase string) (ssh.Signer, error) {
+func sshAuthSigner(pemKey []byte, passphrase string, requestPassphrase func() string) (ssh.Signer, error) {
 	if len(passphrase) > 0 {
 		return ssh.ParsePrivateKeyWithPassphrase(pemKey, []byte(passphrase))
 	} else {
-		return ssh.ParsePrivateKey(pemKey)
+		signer, err := ssh.ParsePrivateKey(pemKey)
+		if err != nil && requestPassphrase != nil {
+			if _, ok := err.(*ssh.PassphraseMissingError); ok {
+				return sshAuthSigner(pemKey, requestPassphrase(), nil)
+			}
+		}
+		return signer, err
 	}
 }
 
-func openSshSessionCommand(user string, host string, port int, password Password, privateKey *ApiSshPrivateKey, cmd string) ([]byte, error) {
+func haltViaSsh(user string, host string, port *int, password Password, privateKey *SshPrivateKeyOptions, requestPassphrase func() string) ([]byte, error) {
+	shouldSudo := user != "root"
+	cmd := "halt -p"
+	if shouldSudo {
+		cmd = "sudo " + cmd
+	}
+	return openSshSessionCommand(user, host, port, password, privateKey, cmd, requestPassphrase)
+}
+
+func openSshSessionCommand(user string, host string, port *int, password Password, privateKey *SshPrivateKeyOptions, cmd string, requestPassphrase func() string) ([]byte, error) {
 	hostKeyCallback, err := sshKnownHosts()
 	if err != nil {
 		return nil, err
 	}
 
+	realPort := 22
+	if port != nil {
+		realPort = *port
+	}
+
 	var authMethods []ssh.AuthMethod
 	if privateKey != nil {
-		authKey, err := privateKey.AuthMethod()
+		authKey, err := privateKey.AuthMethod(requestPassphrase)
 		if err != nil {
 			return nil, err
 		}
@@ -106,7 +133,7 @@ func openSshSessionCommand(user string, host string, port int, password Password
 		HostKeyCallback: hostKeyCallback,
 	}
 
-	addr := fmt.Sprintf("%s:%d", host, port)
+	addr := fmt.Sprintf("%s:%d", host, realPort)
 	client, err := ssh.Dial("tcp", addr, config)
 	if err != nil {
 		return nil, fmt.Errorf("couldnt dial ssh, %s", err)
